@@ -1,1 +1,421 @@
-# octocat.github.io
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cafe 極速下單系統 (手機優化版)</title>
+    <style>
+        :root {
+            --primary: #4A3b32;
+            --secondary: #d4a373;
+            --bg: #f5f5f7;
+            --white: #ffffff;
+            --danger: #ff3b30;
+            --success: #34c759;
+            --active-bg: #e8f5e9;
+            --active-border: #4caf50;
+        }
+        * { box-sizing: border-box; font-family: '-apple-system', 'BlinkMacSystemFont', 'PingFang HK', 'Helvetica Neue', sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; padding: 0; background-color: var(--bg); color: var(--primary); padding-bottom: 160px; }
+        
+        header { background-color: var(--primary); color: var(--white); padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        header h1 { margin: 0; font-size: 1.2rem; font-weight: 600; }
+        .history-btn { background: var(--secondary); color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; }
+        
+        .category-title { background: #e0dcd3; padding: 10px 15px; margin: 0; font-size: 1.05rem; position: sticky; top: 52px; z-index: 90; font-weight: bold; color: #333; }
+        
+        /* 手機版雙欄網格設計 */
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 15px; }
+        
+        /* 每個餐點卡片 */
+        .menu-item { background: var(--white); border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px 8px 8px 8px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between; min-height: 110px; transition: all 0.2s ease; }
+        .menu-item.active { background-color: var(--active-bg); border-color: var(--active-border); }
+        
+        /* 點擊文字區域 */
+        .item-text-area { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; margin-bottom: 8px; cursor: pointer; }
+        .item-text-area:active { opacity: 0.6; }
+        .item-en { font-size: 0.7rem; color: #777; margin-bottom: 4px; line-height: 1.1; }
+        .item-zh { font-size: 0.95rem; font-weight: bold; line-height: 1.25; color: #222; }
+        
+        /* 客製化選項樣式 */
+        .options-grid { grid-template-columns: repeat(2, 1fr); }
+        .option-item { background: #f0f8ff; border-color: #b6d4fe; min-height: 90px; }
+        .option-item .item-zh { color: #0d6efd; }
+        
+        /* 加減數量控制器 (膠囊形狀) */
+        .qty-controls { display: flex; justify-content: space-between; align-items: center; background: #f1f1f1; border-radius: 20px; padding: 3px; }
+        .menu-item.active .qty-controls { background: #c8e6c9; }
+        .btn-qty { width: 32px; height: 32px; border: none; background: var(--white); border-radius: 50%; font-size: 1.3rem; font-weight: bold; color: var(--primary); display: flex; justify-content: center; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .btn-qty:active { background: #e0e0e0; transform: scale(0.95); }
+        .qty-display { font-size: 1.1rem; font-weight: bold; min-width: 24px; }
+        
+        /* 底部購物車 */
+        .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-top: 1px solid #ddd; padding: 12px 15px 20px 15px; display: flex; flex-direction: column; z-index: 100; }
+        .cart-items-preview { font-size: 0.95rem; color: #444; margin-bottom: 12px; max-height: 60px; overflow-y: auto; font-weight: bold; line-height: 1.4; }
+        .cart-controls { display: flex; gap: 12px; }
+        .btn { flex: 1; padding: 16px; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold; color: white; }
+        .btn-reset { background-color: var(--danger); flex: 0.35; }
+        .btn-confirm { background-color: var(--success); flex: 0.65; }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        
+        /* 彈出視窗 */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.65); display: none; justify-content: center; align-items: center; z-index: 200; padding: 20px; }
+        .modal-content { background: white; width: 100%; max-width: 400px; border-radius: 16px; padding: 24px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-title { font-size: 1.4rem; margin-top: 0; border-bottom: 2px solid var(--primary); padding-bottom: 12px; margin-bottom: 16px; }
+        .order-list { list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 1.1rem; }
+        .order-list li { padding: 10px 0; border-bottom: 1px dashed #ccc; display: flex; justify-content: space-between; align-items: flex-start; }
+        .order-list li .item-name { flex: 1; padding-right: 10px; }
+        .order-list li .qty { font-weight: bold; color: var(--danger); font-size: 1.2rem; }
+        .btn-close-modal { width: 100%; background: var(--primary); color: white; padding: 16px; border: none; border-radius: 10px; font-size: 1.15rem; font-weight: bold; }
+        
+        /* 歷史紀錄卡片 */
+        #historyModal .modal-content { background: #f5f5f7; }
+        .history-card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .history-time { font-size: 0.85rem; color: #888; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>📝 快速下單系統</h1>
+    <button class="history-btn" onclick="openHistory()">紀錄</button>
+</header>
+
+<div id="menu-container"></div>
+
+<div class="cart-bar">
+    <div class="cart-items-preview" id="cart-preview">目前清單：無</div>
+    <div class="cart-controls">
+        <button class="btn btn-reset" onclick="resetOrder()">清空重設</button>
+        <button class="btn btn-confirm" onclick="confirmOrder()">確認下單</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-content">
+        <h2 class="modal-title">✅ 單號: <span id="orderNumber"></span></h2>
+        <ul class="order-list" id="modalOrderList"></ul>
+        <button class="btn-close-modal" onclick="closeAndNext()">確認並接待下一位</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="historyModal">
+    <div class="modal-content">
+        <h2 class="modal-title">📚 歷史紀錄</h2>
+        <div id="historyList"></div>
+        <button class="btn-close-modal" onclick="closeHistory()" style="margin-top:20px; background: #666;">返回下單</button>
+    </div>
+</div>
+
+<script>
+// 菜單資料
+const menuData = [
+    {
+        category: "客製化選項 / 套餐 (Options & Sets)",
+        isOption: true,
+        items: [
+            { en: "HOT", zh: "熱 (Hot)" },
+            { en: "ICED", zh: "凍 (Iced)" },
+            { en: "Set Any One Of (Soup/Basic Drink)", zh: "選擇套餐 (+餐湯/飲品)" },
+            { en: "UPGRADE (+$25)", zh: "升級套餐 (+$25西湯及飲品)" },
+            { en: "Extra shot", zh: "加濃 (+5)" },
+            { en: "OAT Milk", zh: "燕麥奶 (+5)" },
+            { en: "SOY Milk", zh: "豆奶 (+5)" },
+            { en: "SKIMMED Milk", zh: "脫脂奶 (免費)" },
+            { en: "Full portion", zh: "全份四件" },
+            { en: "Half portion", zh: "半份兩件" }
+        ]
+    },
+    {
+        category: "Black 咖啡",
+        items: [
+            { en: "48 Hours Cold Brew (Fruity S.O)", zh: "48小時冰釀咖啡(果酸單品)" },
+            { en: "Americano", zh: "美式咖啡" },
+            { en: "Blackccino", zh: "泡沫黑咖啡" },
+            { en: "Espresso", zh: "意式濃縮咖啡" },
+            { en: "Espresso Tonic", zh: "咖啡湯力" },
+            { en: "Espresso Coke", zh: "咖啡可樂" },
+            { en: "Espresso Ginger Beer", zh: "咖啡薑啤" },
+            { en: "Fresh Basil Espresso Tonic", zh: "鮮羅勒葉咖啡湯力" },
+            { en: "Lemon & Honey Espresso Tonic", zh: "蜜蜂檸檬咖啡湯力" },
+            { en: "Signature Drink Summer Connection", zh: "特調: Summer Connection" },
+            { en: "Orange Long Black", zh: "凍橙汁黑咖啡" },
+            { en: "Pineapple Long Black", zh: "凍菠蘿汁黑咖啡" }
+        ]
+    },
+    {
+        category: "Milky & White 奶類及白咖啡",
+        items: [
+            { en: "Chai Latte", zh: "波納香料奶茶" },
+            { en: "Chocolate", zh: "朱古力" },
+            { en: "Genmaicha Latte", zh: "玄米茶鮮奶" },
+            { en: "HojiCha Latte", zh: "焙茶鮮奶" },
+            { en: "Matcha Latte", zh: "抹茶鮮奶" },
+            { en: "Marshmallows Babyccino", zh: "寶寶泡沫鮮奶" },
+            { en: "Pistachio Latte", zh: "開心果鮮奶" },
+            { en: "Cappuccino", zh: "泡沫咖啡" },
+            { en: "Caramel Latte", zh: "焦糖鮮奶咖啡" },
+            { en: "Caffe Latte", zh: "鮮奶咖啡" },
+            { en: "Dirty", zh: "髒髒咖啡" },
+            { en: "Flat White", zh: "澳白咖啡" },
+            { en: "Hazelnut Latte", zh: "榛子鮮奶咖啡" },
+            { en: "Honeycomb Latte", zh: "焦糖脆脆鮮奶咖啡" },
+            { en: "Mocha", zh: "朱古力鮮奶咖啡" },
+            { en: "Piccolo Latte", zh: "迷你鮮奶咖啡" }
+        ]
+    },
+    {
+        category: "Sparkling & Tea 特飲及茶",
+        items: [
+            { en: "Lemonade", zh: "檸檬梳打" },
+            { en: "Passion Fruit", zh: "熱情果梳打" },
+            { en: "Earl Grey Tea", zh: "伯爵紅茶" },
+            { en: "French Rose Tea", zh: "法國玫瑰花茶" },
+            { en: "Oolong Tea", zh: "烏龍茶" },
+            { en: "Organic Chamomile Flowers Tea", zh: "有機洋甘菊花茶" },
+            { en: "Roselle Flowers Tea", zh: "洛神花茶" }
+        ]
+    },
+    {
+        category: "Salad & Brunch 沙律及早午餐",
+        items: [
+            { en: "Mango, Parma Ham & Green Papaya Salad", zh: "香芒帕爾馬火腿青木瓜沙律" },
+            { en: "Figs & Walnuts Pomegranate Salad", zh: "無花果合桃石榴果黑醋沙律" },
+            { en: "Roasted Chicken & Cashew Nut Salad", zh: "日式燒雞腰果仁沙律" },
+            { en: "Deluxe All Day Breakfast", zh: "全日早餐升級版" },
+            { en: "All Day Breakfast", zh: "全日早餐" },
+            { en: "Smoked Salmon & Smashed Avocado Bagel", zh: "刁草忌廉芝士三文魚牛油果蓉比高" },
+            { en: "Pulled Pork Benedict", zh: "手撕豬肉班尼迪蛋" },
+            { en: "Smoked Salmon On Sourdough", zh: "煙三文魚配酸包多士" },
+            { en: "Bacon & Smoked Salmon Benedict", zh: "煙肉三文魚班尼迪蛋" },
+            { en: "Smashed avocado on Sourdough", zh: "牛油果蓉配酸包多士" }
+        ]
+    },
+    {
+        category: "Pasta & Risotto 意粉及燉飯",
+        items: [
+            { en: "Slow Cooked Black Garlic & Beef Cheek Risotto", zh: "慢煮黑蒜牛面肉燉意大利飯" },
+            { en: "Creamy Baby Scallops Risotto", zh: "牛油忌廉汁帶子粒意大利飯" },
+            { en: "Prawn & Creamy Tom Yum Goong Linguine", zh: "泰式鮮蝦忌廉冬陰功扁意粉" },
+            { en: "Creamy Portabello Mushrooms Fusilli", zh: "松露油忌廉大啡菇貓耳朵" },
+            { en: "Pad Thai Linguine With Pork Collar", zh: "泰式豬頸肉炒扁意粉" },
+            { en: "Rose Sauce Fusilli With Char Siu", zh: "玫瑰醬意粉配蜜汁牛叉燒" },
+            { en: "Eggy Carbonara With Walnut Crumb", zh: "合桃脆脆卡邦尼短手卷意粉" }
+        ]
+    },
+    {
+        category: "Mains & Snacks 主菜及小食",
+        items: [
+            { en: "Freshly Roast Pineapple Piri Piri Chicken", zh: "現烤菠蘿霹靂霹靂烤黃油雞" },
+            { en: "Homemade BBQ Beef Char Siu", zh: "自家製蜜汁牛叉燒配酸甜石榴" },
+            { en: "Fried Rice Powder Pork Collar", zh: "炸烤米粉香料豬頸肉" },
+            { en: "Mentaiko Cream Cheese Crab Dip", zh: "明太子忌廉芝士蟹肉蘸醬" },
+            { en: "Deep Fried Sakura Shrimps & Enoki", zh: "椒鹽櫻花蝦酥炸金菇" },
+            { en: "Salted Egg York Chicken Wings", zh: "香炸鹹蛋黃單骨雞翼" },
+            { en: "Deep Fried Potatoes With Garlic Aioli", zh: "香炸薯角配蒜蓉醬" },
+            { en: "Cream Cheese & Garlic Bun", zh: "香蔥蒜蓉忌廉芝士包" }
+        ]
+    },
+    {
+        category: "Dessert 甜品",
+        items: [
+            { en: "Butter Mochi Waffle & Chestnut Puree", zh: "栗子蓉牛油黃糖麻薯窩夫" },
+            { en: "Green Tea & Red Beans Mochi Waffle", zh: "紅豆抹茶麻糬窩夫" },
+            { en: "Caramelised Banana Waffle", zh: "焦糖香蕉貝殼窩夫" },
+            { en: "All Oreo Waffle", zh: "奥利奧餅乾貝殼窩夫" },
+            { en: "Dirty Tiramisu", zh: "髒髒提拉米蘇" },
+            { en: "Pistachio Kunafa Tiramisu", zh: "開心果醬牛油脆絲提拉米蘇" }
+        ]
+    }
+];
+
+let currentOrder = {};
+let orderHistory = [];
+let orderCounter = 1;
+
+// 建立全域的商品對照表，方便透過 ID 尋找名稱
+const itemMap = {};
+let globalItemId = 0;
+
+function initMenu() {
+    const container = document.getElementById('menu-container');
+    
+    menuData.forEach((cat) => {
+        // 分類標題
+        const title = document.createElement('h2');
+        title.className = 'category-title';
+        title.innerText = cat.category;
+        container.appendChild(title);
+
+        // 餐點網格
+        const grid = document.createElement('div');
+        grid.className = 'menu-grid';
+        if(cat.isOption) grid.classList.add('options-grid');
+
+        cat.items.forEach(item => {
+            const itemId = 'item_' + globalItemId++;
+            itemMap[itemId] = item.zh; // 儲存 ID 與 中文名稱的對應
+            
+            const card = document.createElement('div');
+            card.className = 'menu-item' + (cat.isOption ? ' option-item' : '');
+            card.id = `card_${itemId}`;
+            
+            card.innerHTML = `
+                <div class="item-text-area" onclick="updateQty('${itemId}', 1)">
+                    <div class="item-en">${item.en}</div>
+                    <div class="item-zh">${item.zh}</div>
+                </div>
+                <div class="qty-controls">
+                    <button class="btn-qty minus" onclick="updateQty('${itemId}', -1)">−</button>
+                    <span class="qty-display" id="qty_${itemId}">0</span>
+                    <button class="btn-qty plus" onclick="updateQty('${itemId}', 1)">+</button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+        container.appendChild(grid);
+    });
+}
+
+// 更新數量核心邏輯
+function updateQty(itemId, delta) {
+    const itemName = itemMap[itemId];
+    
+    // 初始化數量
+    if (!currentOrder[itemName]) {
+        currentOrder[itemName] = 0;
+    }
+    
+    // 計算新數量 (不允許小於0)
+    let newQty = currentOrder[itemName] + delta;
+    if (newQty < 0) newQty = 0;
+    
+    // 更新資料
+    if (newQty === 0) {
+        delete currentOrder[itemName];
+    } else {
+        currentOrder[itemName] = newQty;
+    }
+    
+    // 手機震動回饋 (如果裝置支援)
+    if(navigator.vibrate) navigator.vibrate(40);
+    
+    // 更新該格子的畫面顯示
+    document.getElementById(`qty_${itemId}`).innerText = newQty;
+    const card = document.getElementById(`card_${itemId}`);
+    
+    // 數量大於0時，改變卡片顏色
+    if (newQty > 0) {
+        card.classList.add('active');
+    } else {
+        card.classList.remove('active');
+    }
+    
+    updateCartUI();
+}
+
+// 更新下方預覽文字
+function updateCartUI() {
+    const preview = document.getElementById('cart-preview');
+    let itemsStr = [];
+    for(let item in currentOrder) {
+        itemsStr.push(`${item} <span style="color:var(--danger)">x${currentOrder[item]}</span>`);
+    }
+    preview.innerHTML = itemsStr.length > 0 ? "清單: " + itemsStr.join(" | ") : "目前清單：無";
+}
+
+// 清空重設所有選項
+function resetOrder() {
+    currentOrder = {};
+    
+    // 重設所有畫面上的數字與顏色
+    for (let itemId in itemMap) {
+        document.getElementById(`qty_${itemId}`).innerText = '0';
+        document.getElementById(`card_${itemId}`).classList.remove('active');
+    }
+    
+    updateCartUI();
+}
+
+// 按下確認下單
+function confirmOrder() {
+    if(Object.keys(currentOrder).length === 0) {
+        alert("清單是空的！請先點擊餐點。");
+        return;
+    }
+    
+    // 寫入彈出視窗
+    document.getElementById('orderNumber').innerText = String(orderCounter).padStart(3, '0');
+    const ul = document.getElementById('modalOrderList');
+    ul.innerHTML = '';
+    
+    for(let item in currentOrder) {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="item-name">${item}</span> <span class="qty">x${currentOrder[item]}</span>`;
+        ul.appendChild(li);
+    }
+    
+    document.getElementById('confirmModal').style.display = 'flex';
+}
+
+// 關閉確認視窗、存入歷史並迎接下一位
+function closeAndNext() {
+    const now = new Date();
+    const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    // 深拷貝當前訂單存入歷史
+    orderHistory.push({
+        number: orderCounter,
+        time: timeString,
+        items: {...currentOrder}
+    });
+    
+    orderCounter++;
+    resetOrder(); // 自動清空畫面
+    document.getElementById('confirmModal').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // 平滑回到頂部
+}
+
+// 打開歷史紀錄
+function openHistory() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '';
+    
+    if(orderHistory.length === 0) {
+        list.innerHTML = '<p style="text-align:center; color:#888;">尚無任何紀錄</p>';
+    } else {
+        // 最新訂單顯示在最上方
+        [...orderHistory].reverse().forEach(order => {
+            const card = document.createElement('div');
+            card.className = 'history-card';
+            
+            let itemsHtml = Object.entries(order.items).map(([name, qty]) => 
+                `<div style="display:flex; justify-content:space-between; margin-top:4px;">
+                    <span>${name}</span>
+                    <strong style="color:var(--danger)">x${qty}</strong>
+                 </div>`
+            ).join('');
+            
+            card.innerHTML = `
+                <div style="font-weight:bold; font-size:1.1rem;">單號: ${String(order.number).padStart(3, '0')}</div>
+                <div class="history-time">時間: ${order.time}</div>
+                <div>${itemsHtml}</div>
+            `;
+            list.appendChild(card);
+        });
+    }
+    
+    document.getElementById('historyModal').style.display = 'flex';
+}
+
+// 關閉歷史紀錄
+function closeHistory() {
+    document.getElementById('historyModal').style.display = 'none';
+}
+
+// 啟動程式
+initMenu();
+</script>
+
+</body>
+</html>
